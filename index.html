@@ -19,7 +19,7 @@
 <style>
 /* Layout: una columna ancha. Arriba el estado (resumen + gráfico), en medio el registro del día, abajo el cuaderno completo en tabla. */
 :root {
-  --bg: #d9eae2;
+  --bg: #eef1ef;
   --surface: #ffffff;
   --field: #eaf4ef;
   --ink: #14211f;
@@ -219,9 +219,9 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
 .s-conf .card-head, .s-tab .card-head, .s-stats .card-head { flex-direction: column; align-items: flex-start; gap: 12px; }
 #backBtn, #backCuad, #backStats { order: -1; min-height: 48px; padding: 8px 14px; font-size: 16px; }
 </style>
-
 </head>
 <body>
+
 <div class="wrap" id="wrap">
   <header class="top">
     <div>
@@ -302,11 +302,12 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     <div id="cfgBody" hidden>
     <div id="menu" class="menu">
       <button type="button" class="menuBtn" data-go="pauta"><span><b>Pauta de insulina rápida</b><small>Dosis según la glucosa</small></span><i aria-hidden="true">›</i></button>
+      <button type="button" class="menuBtn" data-go="lenta"><span><b>Insulina lenta</b><small>Dosis antes de dormir</small></span><i aria-hidden="true">›</i></button>
       <button type="button" class="menuBtn" data-go="clave"><span><b>Contraseña</b><small>Cambiar la contraseña de esta pantalla</small></span><i aria-hidden="true">›</i></button>
     </div>
 
     <div class="panel" id="p-pauta" hidden>
-      <p class="hint">Antes de desayunar, comer, cenar y dormir, la web te dirá la dosis que pongas aquí según la glucosa que te midas. Cámbiala cuando tu médico cambie la pauta.</p>
+      <p class="hint">Antes de desayunar, comer y cenar, la web te dirá la dosis que pongas aquí según la glucosa que te midas. Cámbiala cuando tu médico cambie la pauta.</p>
       <div id="pautaRows"></div>
       <div class="row" style="margin-top:14px">
         <div class="field"><label for="lowBelow">Aviso de glucosa baja por debajo de (mg/dL)</label><input type="number" id="lowBelow" inputmode="numeric" min="20" max="150"></div>
@@ -319,6 +320,12 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
         <button type="button" class="btn" id="savePauta">Guardar pauta</button>
         <span class="msg" id="pmsg" role="status"></span>
       </div>
+    </div>
+
+    <div class="panel" id="p-lenta" hidden>
+      <p class="hint">Es la dosis fija de «Antes de dormir», se mida o no la glucosa. Desde las 19:00 hasta las 24:00, si aún no está apuntada, sale el aviso «Pon X unidades de insulina lenta» con el botón Apuntar.</p>
+      <div class="row"><div class="field"><label for="lentaU">Insulina lenta antes de dormir (unidades)</label><input type="number" id="lentaU" inputmode="decimal" min="0" max="200" step="0.5"></div></div>
+      <div class="bar"><button type="button" class="btn" id="saveLenta">Guardar</button><span class="msg" id="lmsg2" role="status"></span></div>
     </div>
 
     <div class="panel" id="p-clave" hidden>
@@ -353,7 +360,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
   var PAUTA0 = { rows: [
     { from: 0, to: 150, dose: 0 }, { from: 151, to: 200, dose: 2 }, { from: 201, to: 250, dose: 4 },
     { from: 251, to: 300, dose: 6 }, { from: 301, to: 349, dose: 8 }, { from: 350, to: 399, dose: 10 }
-  ], alertFrom: 400, alertText: 'Ve al hospital o llama al 112.', lowBelow: 70, lowText: 'Glucosa baja. No te pongas insulina. Toma azúcar de acción rápida (por ejemplo, un zumo o 3 terrones) y vuelve a medirte en 15 minutos. Si no mejora o te encuentras mal, llama al 112.' };
+  ], alertFrom: 400, alertText: 'Ve al hospital o llama al 112.', lenta: 12, lowBelow: 70, lowText: 'Glucosa baja. No te pongas insulina. Toma azúcar de acción rápida (por ejemplo, un zumo o 3 terrones) y vuelve a medirte en 15 minutos. Si no mejora o te encuentras mal, llama al 112.' };
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   var S = { sub: 'menu', view: 'main', asking: false, unlocked: false, pinHash: null, pinLoaded: false, pinDoc: null, pauta: clone(PAUTA0), pDraft: null, pDirty: false, pDoc: null, entries: {}, days: 7, mode: null, ready: false, saving: 0, clave: '', claveCreada: false };
   var $ = function (id) { return document.getElementById(id); };
@@ -382,7 +389,9 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
         h += '<div class="field"><label for="g_' + k + '">' + GLAB[k] + '</label><input type="number" id="g_' + k + '" inputmode="numeric" min="10" max="700"></div>';
       });
       h += '<div class="field ins"><label for="i_' + m.i + '">' + 'Dosis insulina' + '</label><input type="number" id="i_' + m.i + '" inputmode="decimal" min="0" max="200" step="0.5"></div>';
-      return h + '</div>' + '<div class="sugg" id="s_' + m.i + '" hidden></div>' + '</div>';
+      h += '</div>' + '<div class="sugg" id="s_' + m.i + '" hidden></div>';
+      if (m.i === 'dor') h += '<div class="sugg" id="s_len" hidden></div>';
+      return h + '</div>';
     }).join('');
   }
   function dayWord(date) {
@@ -416,7 +425,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
   function updateSugg(m) {
     var el = $('s_' + m.i); if (!el) return;
     var v = num($('g_' + m.g[0]).value), r = v === null ? null : doseFor(v);
-    if (v === null) { el.hidden = true; el.innerHTML = ''; return; }
+    if (v === null || (m.i === 'dor' && !(r && (r.low || r.alert)))) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
     if (!r) { el.className = 'sugg alert'; el.innerHTML = '<span>Este valor no está en la pauta. No hay dosis indicada: pregunta cuánta insulina poner.</span>'; return; }
     if (r.low) { el.className = 'sugg alert'; el.innerHTML = '<span>' + esc(S.pauta.lowText || 'Glucosa baja. No te pongas insulina.') + '</span>'; return; }
@@ -426,7 +435,17 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     el.innerHTML = '<span>' + (r.dose === 0 ? '<b>No pongas insulina</b>' : 'Pon <b>' + r.dose + (r.dose === 1 ? ' unidad' : ' unidades') + '</b>') + '</span>' +
       (filled ? '' : '<button type="button" class="btn" data-fill="' + m.i + '" data-dose="' + r.dose + '">Apuntar ' + r.dose + '</button>');
   }
-  function updateAllSugg() { MEALS.forEach(updateSugg); }
+  function lentaDose() { return S.pauta.lenta === undefined ? 12 : num(S.pauta.lenta); }
+  function updateLen() {
+    var el = $('s_len'); if (!el) return;
+    var L = lentaDose(), h = '';
+    var on = L !== null && L > 0 && $('date').value === ymd(new Date()) && new Date().getHours() >= 19 && $('i_dor').value === '';
+    if (on) h = '<span>Pon <b>' + L + (L === 1 ? ' unidad' : ' unidades') + '</b> de insulina lenta</span><button type="button" class="btn" data-len="' + L + '">Apuntar ' + L + '</button>';
+    if (el.getAttribute('data-h') === h) return;
+    el.setAttribute('data-h', h); el.innerHTML = h; el.hidden = !on; el.className = 'sugg';
+  }
+  function updateAllSugg() { MEALS.forEach(updateSugg); updateLen(); }
+  setInterval(updateLen, 20000);
   var SUG_T = {};
   var AS = { dirty: false, timer: null };
   function autosave() {
@@ -610,6 +629,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     if (ev.target.id && ev.target.id.indexOf('i_') === 0) {
       ev.target.removeAttribute('data-auto');
       MEALS.forEach(function (m) { if ('i_' + m.i === ev.target.id && $('s_' + m.i) && !$('s_' + m.i).hidden) updateSugg(m); });
+      if (ev.target.id === 'i_dor') updateLen();
     }
     touched();
   });
@@ -627,6 +647,8 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     });
   });
   $('meals').addEventListener('click', function (ev) {
+    var lb = ev.target.closest ? ev.target.closest('[data-len]') : null;
+    if (lb) { $('i_dor').value = lb.getAttribute('data-len'); updateLen(); touched(); return; }
     var b = ev.target.closest ? ev.target.closest('[data-fill]') : null; if (!b) return;
     var di = $('i_' + b.getAttribute('data-fill')); di.value = b.getAttribute('data-dose'); di.setAttribute('data-auto', '1');
     MEALS.forEach(function (m) { if (m.i === b.getAttribute('data-fill')) updateSugg(m); });
@@ -651,6 +673,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     }).join('');
     $('alertFrom').value = D.alertFrom || ''; $('alertText').value = D.alertText || '';
     $('lowBelow').value = D.lowBelow || ''; $('lowText').value = D.lowText || '';
+    $('lentaU').value = D.lenta === undefined ? 12 : (D.lenta === null ? '' : D.lenta);
   }
   function syncDraft() {
     var D = S.pDraft; if (!D) return;
@@ -660,6 +683,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     });
     D.alertFrom = num($('alertFrom').value); D.alertText = $('alertText').value.trim();
     D.lowBelow = num($('lowBelow').value); D.lowText = $('lowText').value.trim();
+    D.lenta = num($('lentaU').value);
   }
   /* ---------- PDF para imprimir ---------- */
   function makePdf() {
@@ -812,10 +836,10 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
   }
   function showSub(n) {
     S.sub = n;
-    ['pauta', 'clave'].forEach(function (k) { $('p-' + k).hidden = k !== n; });
+    ['pauta', 'lenta', 'clave'].forEach(function (k) { $('p-' + k).hidden = k !== n; });
     $('menu').hidden = n !== 'menu';
     updateHead(); window.scrollTo(0, 0);
-    if (n === 'pauta' && !S.pDirty) resetDraft();
+    if ((n === 'pauta' || n === 'lenta') && !S.pDirty) resetDraft();
   }
   function goBack() { if (S.view === 'admin' && S.unlocked && S.sub !== 'menu') showSub('menu'); else goMain(); }
   $('menu').addEventListener('click', function (ev) { var b = ev.target.closest ? ev.target.closest('[data-go]') : null; if (b) showSub(b.getAttribute('data-go')); });
@@ -863,6 +887,13 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
   $('alertText').addEventListener('input', function () { S.pDirty = true; });
   $('lowBelow').addEventListener('input', function () { S.pDirty = true; });
   $('lowText').addEventListener('input', function () { S.pDirty = true; });
+  $('lentaU').addEventListener('input', function () { S.pDirty = true; $('lmsg2').textContent = ''; });
+  $('saveLenta').addEventListener('click', function () {
+    var v = num($('lentaU').value), m = $('lmsg2'); m.className = 'msg';
+    if (v === null || v < 0 || v > 200) { m.textContent = 'Escribe un número de unidades.'; return; }
+    $('savePauta').click(); var t = $('pmsg').textContent;
+    if (t.charAt(0) === '✓') { m.textContent = '✓ Guardado'; m.className = 'msg ok'; } else m.textContent = t;
+  });
   $('pautaRows').addEventListener('click', function (ev) {
     var b = ev.target.closest ? ev.target.closest('[data-rm]') : null; if (!b) return;
     syncDraft(); S.pDraft.rows.splice(+b.getAttribute('data-rm'), 1); S.pDirty = true; renderPauta();
@@ -881,7 +912,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
     for (var j = 1; j < rows.length; j++) if (rows[j].from <= rows[j - 1].to) { msg.textContent = 'Los tramos ' + rows[j - 1].from + '–' + rows[j - 1].to + ' y ' + rows[j].from + '–' + rows[j].to + ' se cruzan.'; return; }
     var gaps = [];
     for (var q = 1; q < rows.length; q++) if (rows[q].from > rows[q - 1].to + 1) gaps.push((rows[q - 1].to + 1) + '–' + (rows[q].from - 1));
-    S.pauta = { rows: rows, alertFrom: D.alertFrom, alertText: D.alertText, lowBelow: D.lowBelow, lowText: D.lowText };
+    S.pauta = { rows: rows, alertFrom: D.alertFrom, alertText: D.alertText, lowBelow: D.lowBelow, lowText: D.lowText, lenta: D.lenta };
     rpc('guardarPauta', S.pauta, S.clave).catch(function () { msg.textContent = 'No se pudo guardar la pauta.'; msg.className = 'msg'; });
     resetDraft(); updateAllSugg();
     msg.textContent = '✓ Pauta guardada' + (gaps.length ? '. Ojo: no hay dosis para ' + gaps.join(', ') + ' mg/dL.' : '');
@@ -901,7 +932,7 @@ td.note { text-align: left; font-size: 13px; color: var(--muted); max-width: 220
       S.entries = d.entries || {};
       if (keep && mine) S.entries[keep] = mine;
       S.claveCreada = !!d.claveCreada; S.pinLoaded = true; renderLock();
-      if (d.pauta && Array.isArray(d.pauta.rows)) { S.pauta = { rows: d.pauta.rows, alertFrom: num(d.pauta.alertFrom), alertText: d.pauta.alertText || '', lowBelow: ('lowBelow' in d.pauta) ? num(d.pauta.lowBelow) : 70, lowText: d.pauta.lowText || PAUTA0.lowText }; if (!S.pDirty) resetDraft(); }
+      if (d.pauta && Array.isArray(d.pauta.rows)) { S.pauta = { rows: d.pauta.rows, alertFrom: num(d.pauta.alertFrom), alertText: d.pauta.alertText || '', lowBelow: ('lowBelow' in d.pauta) ? num(d.pauta.lowBelow) : 70, lowText: d.pauta.lowText || PAUTA0.lowText, lenta: ('lenta' in d.pauta) ? num(d.pauta.lenta) : 12 }; if (!S.pDirty) resetDraft(); }
       var ae = document.activeElement, editing = ae && ae.closest && ae.closest('#form');
       if (first || (!AS.dirty && !editing)) { fillForm($('date').value); }
       first = false;
